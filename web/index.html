@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>网点价值与财务收支看板</title>
+<script src="/lib/echarts.min.js"></script>
+<style>
+:root{--bg:#0b1220;--card:#131c2e;--card2:#182338;--line:#23324d;--txt:#dfe8f5;--sub:#8aa0bf;--acc:#4da3ff;--good:#3ddc97;--warn:#ffb454;--bad:#ff5d73;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--txt);font-family:"Microsoft YaHei",system-ui,sans-serif;font-size:14px;}
+.top{display:flex;align-items:center;justify-content:space-between;padding:14px 22px;background:linear-gradient(90deg,#101b30,#0b1220);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:50;gap:12px;flex-wrap:wrap;}
+.top h1{font-size:19px;font-weight:700;letter-spacing:1px;}
+.top .meta{color:var(--sub);font-size:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.badge-demo{background:#3a2f10;color:var(--warn);padding:2px 10px;border-radius:10px;font-size:12px;font-weight:600;display:none;}
+.badge-live{background:#0e3b2e;color:var(--good);padding:2px 10px;border-radius:10px;font-size:12px;font-weight:600;display:none;}
+.badge-cache{background:#12303f;color:#4fc3f7;padding:2px 10px;border-radius:10px;font-size:12px;font-weight:600;display:none;}
+.menu{display:flex;gap:8px;flex-wrap:wrap;}
+.menu button{background:var(--card);color:var(--sub);border:1px solid var(--line);padding:8px 16px;border-radius:8px;cursor:pointer;font-size:13.5px;transition:.15s;}
+.menu button.on{background:var(--acc);color:#fff;border-color:var(--acc);font-weight:600;}
+.main{padding:16px 22px 40px;}
+.page{display:none;}
+.page.on{display:block;}
+.filters{display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:14px;}
+.filters label{color:var(--sub);font-size:12px;display:flex;align-items:center;gap:5px;}
+.filters input,.filters select{background:var(--bg);border:1px solid var(--line);color:var(--txt);border-radius:6px;padding:6px 8px;font-size:13px;outline:none;min-width:110px;}
+.filters input:focus,.filters select:focus{border-color:var(--acc);}
+.btn{background:var(--acc);color:#fff;border:none;border-radius:6px;padding:7px 14px;cursor:pointer;font-size:13px;}
+.btn.ghost{background:transparent;border:1px solid var(--line);color:var(--sub);}
+.btn.green{background:var(--good);color:#06281c;}
+.btn.warn{background:var(--warn);color:#2a1e06;}
+.btn:hover{opacity:.88;}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:14px;}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;}
+.kpi .t{color:var(--sub);font-size:12px;margin-bottom:6px;}
+.kpi .v{font-size:21px;font-weight:700;}
+.kpi .s{font-size:11.5px;color:var(--sub);margin-top:3px;}
+.kpi .v.good{color:var(--good);} .kpi .v.bad{color:var(--bad);} .kpi .v.warn{color:var(--warn);} .kpi .v.acc{color:var(--acc);}
+.charts{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;}
+.chart{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px;}
+.chart h3{font-size:14px;margin-bottom:8px;color:var(--txt);}
+.chart .box{height:300px;}
+.chart.full{grid-column:1/-1;}
+.table-wrap{background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:auto;max-height:calc(100vh - 300px);}
+table{width:100%;border-collapse:collapse;font-size:12.5px;white-space:nowrap;}
+th{background:var(--card2);color:var(--sub);position:sticky;top:0;padding:9px 10px;text-align:left;font-weight:600;border-bottom:1px solid var(--line);}
+td{padding:7px 10px;border-bottom:1px solid #1a2740;color:#c9d7ec;}
+tr:hover td{background:#16233a;}
+tr.good td{color:var(--good);} tr.warn td{color:var(--warn);} tr.bad td{color:var(--bad);}
+.num{text-align:right;}
+.pager{display:flex;align-items:center;gap:10px;justify-content:flex-end;padding:10px 2px;color:var(--sub);font-size:13px;}
+.pager button{background:var(--card2);border:1px solid var(--line);color:var(--txt);padding:5px 12px;border-radius:6px;cursor:pointer;}
+.pager button:disabled{opacity:.35;cursor:not-allowed;}
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:12px;}
+.badge.A{background:#0e3b2e;color:var(--good);} .badge.B{background:#3a2f10;color:var(--warn);} .badge.C{background:#3a1620;color:var(--bad);} .badge.D{background:#272b38;color:var(--sub);}
+.msg{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#1e2c47;border:1px solid var(--acc);color:var(--txt);padding:9px 18px;border-radius:8px;font-size:13px;z-index:99;display:none;box-shadow:0 4px 16px rgba(0,0,0,.4);}
+.tag{display:inline-block;padding:1px 7px;border-radius:8px;font-size:11.5px;margin-right:4px;background:#23304b;color:var(--sub);}
+.detail-td{max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.tip{color:var(--sub);font-size:12px;margin-bottom:10px;}
+.rank{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:5px;background:#23304b;color:var(--sub);font-size:11.5px;margin-right:6px;}
+.rank.r1{background:#3a2f10;color:var(--warn);} .rank.r2{background:#2b3a55;color:var(--acc);} .rank.r3{background:#3a1620;color:var(--bad);}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>网点价值与财务收支看板</h1>
+  <div class="menu">
+    <button class="on" data-page="overview">总看板</button>
+    <button data-page="site">网点价值</button>
+    <button data-page="sitedetail">网点价值明细</button>
+    <button data-page="finance">财务看板</button>
+    <button data-page="bills">费用账单明细</button>
+  </div>
+  <div class="meta">
+    <span id="dataDate"></span>
+    <span class="badge-demo" id="demoBadge">演示数据(未连库)</span>
+    <span class="badge-live" id="liveBadge">实时数据库</span>
+    <span class="badge-cache" id="cacheBadge">离线缓存(最后连接数据)</span>
+  </div>
+</div>
+<div class="main">
+
+  <!-- ============ 总看板 ============ -->
+  <div class="page on" id="page-overview">
+    <div class="filters">
+      <label>日期范围 <input type="date" id="ov_d0"> ~ <input type="date" id="ov_d1"></label>
+      <button class="btn ghost" onclick="setRange('ov',7)">近7天</button>
+      <button class="btn ghost" onclick="setRange('ov',30)">近30天</button>
+      <button class="btn ghost" onclick="setRange('ov',90)">近90天</button>
+      <button class="btn" onclick="loadOverview()">查询</button>
+    </div>
+    <div class="cards" id="ovKpi"></div>
+    <div class="charts">
+      <div class="chart"><h3>收入结构</h3><div class="box" id="ovIncome"></div></div>
+      <div class="chart"><h3>支出结构(成本与费用)</h3><div class="box" id="ovCost"></div></div>
+      <div class="chart full"><h3>收支趋势</h3><div class="box" id="ovTrend"></div></div>
+      <div class="chart"><h3>代理商收支排行</h3><div class="box" id="ovAgency"></div></div>
+      <div class="chart"><h3>最具价值网点 TOP10</h3><div class="box" id="ovTopSite"></div></div>
+      <div class="chart full"><h3>网点价值等级分布</h3><div class="box" id="ovScore"></div></div>
+    </div>
+  </div>
+
+  <!-- ============ 网点价值(可视化) ============ -->
+  <div class="page" id="page-site">
+    <div class="filters" id="siteFilters">
+      <label>日期范围 <input type="date" id="sv_d0"> ~ <input type="date" id="sv_d1"></label>
+      <label>城市 <select id="sv_city"><option value="">全部</option></select></label>
+      <label>代理商 <select id="sv_agency"><option value="">全部</option></select></label>
+      <label>电池产品 <select id="sv_product"><option value="">全部</option></select></label>
+      <label>网点/商户关键词 <input type="text" id="sv_kw" placeholder="网点名/商户名/手机号"></label>
+      <button class="btn" onclick="loadSiteCharts()">查询</button>
+      <button class="btn green" onclick="exportSite()">导出明细</button>
+    </div>
+    <div class="charts">
+      <div class="chart"><h3>网点价值等级分布(A/B/C/D)</h3><div class="box" id="svLevel"></div></div>
+      <div class="chart"><h3>网点TOP10(按综合评分)</h3><div class="box" id="svTop"></div></div>
+      <div class="chart"><h3>电费构成(系统结算/线下对公/供电局)</h3><div class="box" id="svElec"></div></div>
+      <div class="chart"><h3>毛利/净利润分布(TOP15)</h3><div class="box" id="svProfit"></div></div>
+      <div class="chart full"><h3>网点价值关键指标(营收/投入/毛利/净利)</h3><div class="box" id="svBar"></div></div>
+    </div>
+  </div>
+
+  <!-- ============ 网点价值明细 ============ -->
+  <div class="page" id="page-sitedetail">
+    <div class="filters" id="detailFilters">
+      <label>日期范围 <input type="date" id="sd_d0"> ~ <input type="date" id="sd_d1"></label>
+      <label>城市 <select id="sd_city"><option value="">全部</option></select></label>
+      <label>代理商 <select id="sd_agency"><option value="">全部</option></select></label>
+      <label>电池产品 <select id="sd_product"><option value="">全部</option></select></label>
+      <label>网点/商户 <input type="text" id="sd_kw" placeholder="网点名/商户名/手机号"></label>
+      <label>结算方式 <select id="sd_settle">
+        <option value="">全部</option>
+        <option>自动结算(柜机上报)</option>
+        <option>手动抄表结算</option>
+        <option>供电局划扣(南方电网)</option>
+      </select></label>
+      <label>状态 <select id="sd_status"><option value="">全部</option><option>营业</option><option>停用</option></select></label>
+      <button class="btn" onclick="loadSiteDetail()">查询</button>
+      <button class="btn green" onclick="exportSiteDetail()">导出Excel</button>
+    </div>
+    <div class="tip">口径: 产出=销售金额+换电订单金额; 投入=电费结算+公司支付分成/补贴; 净利润=毛利-设备月分摊-业务员提成-赠送包价值</div>
+    <div class="table-wrap"><table id="sdTable"></table></div>
+    <div class="pager" id="sdPager"></div>
+  </div>
+
+  <!-- ============ 财务看板 ============ -->
+  <div class="page" id="page-finance">
+    <div class="filters">
+      <label>日期范围 <input type="date" id="fd_d0"> ~ <input type="date" id="fd_d1"></label>
+      <button class="btn ghost" onclick="setRange('fd',30)">近30天</button>
+      <button class="btn ghost" onclick="setRange('fd',90)">近90天</button>
+      <button class="btn" onclick="loadFinance()">查询</button>
+      <button class="btn green" onclick="exportFinance()">导出Excel</button>
+    </div>
+    <div class="cards" id="fdKpi"></div>
+    <div class="charts">
+      <div class="chart"><h3>营收构成</h3><div class="box" id="fdIncome"></div></div>
+      <div class="chart"><h3>成本与费用结构</h3><div class="box" id="fdCost"></div></div>
+      <div class="chart full"><h3>成本费用明细</h3><div class="box" id="fdBar"></div></div>
+    </div>
+    <div class="table-wrap"><table id="fdTable"></table></div>
+  </div>
+
+  <!-- ============ 费用账单明细 ============ -->
+  <div class="page" id="page-bills">
+    <div class="filters">
+      <label>日期范围 <input type="date" id="bl_d0"> ~ <input type="date" id="bl_d1"></label>
+      <label>代理商 <select id="bl_agency"><option value="">全部</option></select></label>
+      <label>关键词 <input type="text" id="bl_kw" placeholder="费用名称/网点/商户"></label>
+      <button class="btn" onclick="loadBills()">查询</button>
+      <button class="btn green" onclick="exportBills()">导出Excel</button>
+    </div>
+    <div class="table-wrap"><table id="blTable"></table></div>
+    <div class="pager" id="blPager"></div>
+  </div>
+
+</div>
+<div class="msg" id="msg"></div>
+<script>
+// ---------------- 基础 ----------------
+const $=id=>document.getElementById(id);
+const fmtY=v=>v==null?'-':Number(v).toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmtN=v=>v==null?'-':Number(v).toLocaleString('zh-CN');
+let filtersData={agencies:[],cities:[],products:[]};
+function msg(t){const m=$('msg');m.textContent=t;m.style.display='block';setTimeout(()=>m.style.display='none',2600);}
+function defRange(){const d=new Date(),d0=new Date(Date.now()-90*864e5);return[d0.toISOString().slice(0,10),d.toISOString().slice(0,10)];}
+function setRange(p,d){const [a,b]=[new Date(Date.now()-(d-1)*864e5).toISOString().slice(0,10),new Date().toISOString().slice(0,10)];
+  if(p==='ov'){$('ov_d0').value=a;$('ov_d1').value=b;loadOverview();}else{$('fd_d0').value=a;$('fd_d1').value=b;loadFinance();}}
+function qs(obj){return Object.entries(obj).filter(([,v])=>v!==''&&v!=null).map(([k,v])=>k+'='+encodeURIComponent(v)).join('&');}
+async function api(path,params,full){try{const r=await fetch(path+(params?'?'+qs(params):''));const j=await r.json();if(j.code!==0)throw new Error(j.msg||'接口错误');
+  if(j.demo!==undefined)setBadge(j.demo,j.data_source,j.data_date);return full?j:j.data;}catch(e){msg('请求失败: '+e.message);throw e;}}
+function setBadge(demo,src,dateStr){src=src||(demo?'demo':'live');$('demoBadge').style.display=src==='demo'?'inline-block':'none';$('liveBadge').style.display=src==='live'?'inline-block':'none';$('cacheBadge').style.display=src==='cache'?'inline-block':'none';$('dataDate').textContent='更新时间: '+(dateStr||(new Date()).toLocaleString('zh-CN'));}
+function pageChange(name){document.querySelectorAll('.menu button').forEach(b=>b.classList.toggle('on',b.dataset.page===name));
+  document.querySelectorAll('.page').forEach(p=>p.classList.toggle('on',p.id==='page-'+name));
+  if(name==='overview')loadOverview();else if(name==='site')loadSiteCharts();else if(name==='sitedetail')loadSiteDetail();else if(name==='finance')loadFinance();else if(name==='bills')loadBills();}
+document.querySelectorAll('.menu button').forEach(b=>b.onclick=()=>pageChange(b.dataset.page));
+
+// ---------------- 筛选维度 ----------------
+async function loadFilters(){try{const d=await api('/api/filters');filtersData=d;setBadge(!!d.demo,d.data_source);
+  ['sv','sd'].forEach(p=>{fillSel(p+'_city',d.cities);fillSel(p+'_agency',d.agencies.map(a=>[a.id,a.name]));fillSel(p+'_product',d.products.map(x=>[x.id,x.name]));});
+  fillSel('bl_agency',d.agencies.map(a=>[a.id,a.name]));}catch(e){}}
+function fillSel(id,items){const sel=$(id);const cur=sel.value;sel.innerHTML='<option value="">全部</option>'+
+  items.map(x=>'<option value="'+x[0]+'">'+x[1]+'</option>').join('');if(cur)sel.value=cur;}
+
+// ---------------- 图表工具 ----------------
+const charts={};
+function chart(id){if(!charts[id])charts[id]=echarts.init($(id),null,{renderer:'canvas'});return charts[id];}
+function pie(id,data,title){chart(id).setOption({tooltip:{trigger:'item',formatter:'{b}: ¥{c} ({d}%)'},legend:{bottom:0,textStyle:{color:'#8aa0bf'}},
+  series:[{type:'pie',radius:['38%','68%'],center:['50%','45%'],itemStyle:{borderColor:'#131c2e',borderWidth:2},
+  label:{color:'#dfe8f5'},data:data}]},true);}
+function line(id,x,y,legend){chart(id).setOption({tooltip:{trigger:'axis'},legend:{top:0,textStyle:{color:'#8aa0bf'}},
+  grid:{left:70,right:30,top:40,bottom:30},xAxis:{type:'category',data:x,axisLabel:{color:'#8aa0bf'}},
+  yAxis:{type:'value',axisLabel:{color:'#8aa0bf'},splitLine:{lineStyle:{color:'#1a2740'}}},
+  series:legend.map((n,i)=>({name:n,type:'line',smooth:true,showSymbol:false,data:y[i],lineStyle:{width:2}}))},true);}
+function bar(id,x,y,legend,stack){chart(id).setOption({tooltip:{trigger:'axis'},legend:{top:0,textStyle:{color:'#8aa0bf'}},
+  grid:{left:80,right:30,top:40,bottom:60},xAxis:{type:'category',data:x,axisLabel:{color:'#8aa0bf',rotate:x.length>8?30:0}},
+  yAxis:{type:'value',axisLabel:{color:'#8aa0bf'},splitLine:{lineStyle:{color:'#1a2740'}}},
+  series:y.map((d,i)=>({name:legend[i],type:'bar',data:d,stack:stack||undefined,barMaxWidth:26}))},true);}
+
+// ---------------- 总看板 ----------------
+async function loadOverview(){try{const d=await api('/api/overview',{date_from:$('ov_d0').value,date_to:$('ov_d1').value});const k=d.kpi;
+  $('ovKpi').innerHTML=[
+    ['营收(元)',k.income_y,'good'],['总支出(元)',k.cost_y,'bad'],['净利润(元)',k.profit_y,k.profit_y>=0?'good':'bad'],
+    ['换电次数',fmtN(k.order_cnt),'acc'],['活跃用户数',fmtN(k.user_cnt),'acc'],['网点数',fmtN(d.site_cnt),'acc'],
+    ['电费支出(元)',k.elec_y,'warn'],['其中系统结算',k.sys_elec_y,'warn'],['其中线下对公',k.offline_elec_y,'warn'],['其中供电局划扣',k.gdj_elec_y,'warn'],
+    ['分成/补贴支出(元)',k.share_out_y,'warn'],['业务员提成(元)',k.promoter_fee_y,'warn'],['赠送电量包(元/'+fmtN(k.present_cnt)+'笔)',k.present_value_y,'warn'],
+    ['设备投入(元)',k.device_cost_y,'warn'],['柜机(台)',fmtN(k.device_cabinet_cnt),'acc'],['电池(颗)',fmtN(k.device_battery_cnt),'acc']]
+    .map(x=>'<div class="kpi"><div class="t">'+x[0]+'</div><div class="v '+x[2]+'">'+fmtY(x[1])+'</div></div>').join('');
+  pie('ovIncome',d.income_breakdown.map(x=>({name:x.name,value:x.value_y})));
+  pie('ovCost',d.cost_breakdown.map(x=>({name:x.name,value:x.value_y})));
+  line('ovTrend',d.trend.map(t=>t.date),[[d.trend.map(t=>t.income_y),d.trend.map(t=>t.cost_y),d.trend.map(t=>t.profit_y)]],['收入','支出','利润']);
+  bar('ovAgency',d.agency_top.map(a=>a.agency_name),[[d.agency_top.map(a=>a.income_y),d.agency_top.map(a=>a.cost_y)]],['收入','支出'],'');
+  const sd=Object.entries(d.score_dist).filter(([,v])=>v>0);
+  bar('ovScore',sd.map(x=>x[0]+'级'),[sd.map(x=>x[1])],['网点数'],'');
+  const ts=d.top_sites;bar('ovTopSite',ts.map(s=>s.site_name),[[ts.map(s=>s.profit_y)]],['净利润(元)'],'');
+}catch(e){}}
+
+// ---------------- 网点价值 ----------------
+async function loadSiteCharts(){try{const rows=await api('/api/site_value',{date_from:$('sv_d0').value,date_to:$('sv_d1').value,city:$('sv_city').value,
+  agency_id:$('sv_agency').value,battery_product:$('sv_product').value,keyword:$('sv_kw').value,page:1,page_size:200});
+  const dist={A:0,B:0,C:0,D:0};rows.forEach(r=>dist[r.level]=(dist[r.level]||0)+1);
+  const sd=Object.entries(dist).filter(([,v])=>v>0);
+  bar('svLevel',sd.map(x=>x[0]+'级'),[sd.map(x=>x[1])],['网点数'],'');
+  const top=[...rows].sort((a,b)=>b.score-a.score).slice(0,10);
+  bar('svTop',top.map(s=>s.site_name),[top.map(s=>s.score)],['综合评分'],'');
+  const elec=[['系统结算',rows.reduce((s,r)=>s+r.sys_elec_y,0)],['线下对公',rows.reduce((s,r)=>s+r.offline_transfer_y,0)],['供电局划扣',rows.reduce((s,r)=>s+r.gdj_deduct_y,0)]].filter(x=>x[1]>0);
+  pie('svElec',elec.map(x=>({name:x[0],value:x[1]})));
+  const p15=[...rows].sort((a,b)=>b.profit_y-a.profit_y).slice(0,15);
+  bar('svProfit',p15.map(s=>s.site_name),[[p15.map(s=>s.profit_y),p15.map(s=>s.net_profit_y)]],['毛利','净利润'],'');
+  const k15=[...rows].sort((a,b)=>b.income_y-a.income_y).slice(0,15);
+  bar('svBar',k15.map(s=>s.site_name),[[k15.map(s=>s.income_y),k15.map(s=>s.cost_y),k15.map(s=>s.profit_y),k15.map(s=>s.net_profit_y)]],['营收','投入','毛利','净利'],'');
+}catch(e){}}
+
+// ---------------- 网点价值明细 ----------------
+let sdPage=1,sdSize=50,sdTotal=0;
+async function loadSiteDetail(){try{const j=await api('/api/site_value',{date_from:$('sd_d0').value,date_to:$('sd_d1').value,city:$('sd_city').value,
+  agency_id:$('sd_agency').value,battery_product:$('sd_product').value,keyword:$('sd_kw').value,page:sdPage,page_size:sdSize},true);
+  const d=j.data;sdTotal=j.total;renderSiteTable(d);renderPager('sdPager',j.total,sdPage,sdSize,v=>{sdPage=v;loadSiteDetail();});
+}catch(e){}}
+function renderSiteTable(rows){const heads=['日期','城市','区域','代理商','网点','状态','商户','电池产品','结算方式','电费单价','电费金额','电费笔数',
+  '系统电费','线下对公','供电局','分成金额','分成比例','激励补贴','业务员提成','用户数','换电次数','换电金额','销售笔数','销售额',
+  '赠送包数','赠送包价值','柜数','电池数','设备投入','月分摊','产出','投入','毛利','毛利率%','净利润','投入产出比','评分','等级'];
+  $('sdTable').innerHTML='<thead><tr>'+heads.map(h=>'<th>'+h+'</th>').join('')+'</tr></thead><tbody>'+rows.map(r=>{
+    const ratio=(r.share_detail||[]).filter(x=>x.expense_value_type&&x.expense_value_type.includes('比例')).map(x=>x.expense_name+':'+x.expense_value+x.expense_value_type).join('; ');
+    return '<tr class="'+(r.profit_y<0?'bad':r.profit_y<500?'warn':'good')+'"><td>'+r.date_from.slice(5)+'~'+r.date_to.slice(5)+'</td><td>'+r.city+'</td><td>'+r.area+'</td><td>'+r.agency_name+'</td><td>'+r.site_name+'</td><td>'+r.site_status+'</td><td>'+r.merchant_name+'</td><td>'+r.battery_product+'</td><td>'+r.settle_way+'</td><td class="num">'+r.electric_price_y+'</td><td class="num">'+fmtY(r.electric_fee_y)+'</td><td class="num">'+r.electric_cnt+'</td><td class="num">'+fmtY(r.sys_elec_y)+'</td><td class="num">'+fmtY(r.offline_transfer_y)+'</td><td class="num">'+fmtY(r.gdj_deduct_y)+'</td><td class="num">'+fmtY(r.share_fee_y)+'</td><td class="detail-td" title="'+ratio+'">'+ratio+'</td><td class="num">'+fmtY(r.incentive_y)+'</td><td class="num">'+fmtY(r.promoter_fee_y)+'</td><td class="num">'+r.user_cnt+'</td><td class="num">'+r.order_cnt+'</td><td class="num">'+fmtY(r.order_fee_y)+'</td><td class="num">'+r.sales_cnt+'</td><td class="num">'+fmtY(r.sales_fee_y)+'</td><td class="num">'+r.present_cnt+'</td><td class="num">'+fmtY(r.present_fee_y)+'</td><td class="num">'+r.device_cabinet_cnt+'</td><td class="num">'+r.device_battery_cnt+'</td><td class="num">'+fmtY(r.device_cost_total_y)+'</td><td class="num">'+fmtY(r.device_cost_monthly_y)+'</td><td class="num">'+fmtY(r.income_y)+'</td><td class="num">'+fmtY(r.cost_y)+'</td><td class="num">'+fmtY(r.profit_y)+'</td><td class="num">'+r.profit_margin+'</td><td class="num">'+fmtY(r.net_profit_y)+'</td><td class="num">'+r.ratio+'</td><td class="num">'+r.score+'</td><td><span class="badge '+r.level+'">'+r.level+'</span></td></tr>';
+  }).join('')+'</tbody>';}
+function renderPager(id,total,page,size,cb){const pages=Math.max(1,Math.ceil(total/size));$(id).innerHTML=
+  '<span>共'+total+'条 / '+pages+'页</span><button '+(page<=1?'disabled':'')+' onclick="'+'goPager(1)">首页</button>'+
+  '<button '+(page<=1?'disabled':'')+' onclick="'+'goPager('+(page-1)+')">上一页</button>'+
+  '<span>第'+page+'页</span><button '+(page>=pages?'disabled':'')+' onclick="'+'goPager('+(page+1)+')">下一页</button>'+
+  '<button '+(page>=pages?'disabled':'')+' onclick="'+'goPager('+pages+')">末页</button>';
+  window.goPager=cb;}
+function exportSiteDetail(){const p={date_from:$('sd_d0').value,date_to:$('sd_d1').value,city:$('sd_city').value,agency_id:$('sd_agency').value,battery_product:$('sd_product').value,keyword:$('sd_kw').value};
+  window.open('/api/site_value/export?'+qs(p));}
+function exportSite(){const p={date_from:$('sv_d0').value,date_to:$('sv_d1').value,city:$('sv_city').value,agency_id:$('sv_agency').value,battery_product:$('sv_product').value,keyword:$('sv_kw').value};
+  window.open('/api/site_value/export?'+qs(p));}
+
+// ---------------- 财务看板 ----------------
+async function loadFinance(){try{const d=await api('/api/finance_detail',{date_from:$('fd_d0').value,date_to:$('fd_d1').value});const s=d.summary;
+  $('fdKpi').innerHTML=[
+    ['营收(元)',s.revenue_y,'good'],['总支出(元)',s.total_expense_y,'bad'],['净利润(元)',s.net_profit_y,s.net_profit_y>=0?'good':'bad'],
+    ['销售金额(元)',s.sales_y,'acc'],['换电订单金额(元)',s.order_y,'acc'],
+    ['设备投入(柜'+s.device_cabinet_cnt+'台×7000+电池'+s.device_battery_cnt+'颗×500)',s.device_cost_y,'warn'],
+    ['软硬件投入(元)',s.software_y+s.hardware_other_y,'warn'],['运营投入(元)',s.operate_y,'warn'],
+    ['业务员提成(元)',s.promoter_fee_y,'warn'],['网点电费(元)',s.elec_total_y,'warn'],
+    ['分成支出(元)',s.share_out_y,'warn'],['赠送电量包('+fmtN(s.present_cnt)+'笔)',s.present_value_y,'warn']]
+    .map(x=>'<div class="kpi"><div class="t">'+x[0]+'</div><div class="v '+x[2]+'">'+fmtY(x[1])+'</div></div>').join('');
+  pie('fdIncome',d.items.filter(x=>x.kind==='income').map(x=>({name:x.name,value:x.value_y})));
+  pie('fdCost',d.items.filter(x=>x.kind==='cost').map(x=>({name:x.name,value:x.value_y})));
+  const costs=d.items.filter(x=>x.kind==='cost');
+  bar('fdBar',costs.map(x=>x.name),[costs.map(x=>x.value_y)],['金额(元)'],'');
+  $('fdTable').innerHTML='<thead><tr><th>分类</th><th>项目</th><th>金额(元)</th><th>方向</th></tr></thead><tbody>'+
+    d.items.map(x=>'<tr class="'+(x.kind==='income'?'good':'')+'"><td>'+x.cate+'</td><td>'+x.name+'</td><td class="num">'+fmtY(x.value_y)+'</td><td>'+(x.kind==='income'?'收入':'支出')+'</td></tr>').join('')+
+    '<tr class="warn"><td>合计</td><td>总支出</td><td class="num">'+fmtY(s.total_expense_y)+'</td><td>支出</td></tr>'+
+    '<tr class="'+(s.net_profit_y>=0?'good':'bad')+'"><td>合计</td><td>净利润</td><td class="num">'+fmtY(s.net_profit_y)+'</td><td>利润</td></tr></tbody>';
+}catch(e){}}
+function exportFinance(){window.open('/api/finance_detail/export?'+qs({date_from:$('fd_d0').value,date_to:$('fd_d1').value}));}
+
+// ---------------- 费用账单明细 ----------------
+let blPage=1,blSize=50,blTotal=0;
+async function loadBills(){try{const j=await api('/api/expense_bills',{date_from:$('bl_d0').value,date_to:$('bl_d1').value,agency_id:$('bl_agency').value,keyword:$('bl_kw').value,page:blPage,page_size:blSize},true);
+  const d=j.data;blTotal=j.total;const heads=['账单ID','日期','费用名称','费用类型','金额(税前)','金额(税后)','收入方','支出方','业务类型','代理商','结算日期'];
+  $('blTable').innerHTML='<thead><tr>'+heads.map(h=>'<th>'+h+'</th>').join('')+'</tr></thead><tbody>'+d.map(r=>
+    '<tr><td>'+r.bill_id+'</td><td>'+r.bill_date+'</td><td>'+r.expense_name+'</td><td>'+r.expense_type+'</td><td class="num">'+fmtY(r.fee_y)+'</td><td class="num">'+fmtY(r.after_taxes_fee_y)+'</td><td>'+r.in_unit_name+'</td><td>'+r.out_unit_name+'</td><td>'+r.business_type+'</td><td>'+r.agency_name+'</td><td>'+r.settle_date+'</td></tr>').join('')+'</tbody>';
+  renderPager('blPager',j.total,j.page,j.page_size,v=>{blPage=v;loadBills();});
+}catch(e){}}
+function exportBills(){window.open('/api/expense_bills/export?'+qs({date_from:$('bl_d0').value,date_to:$('bl_d1').value,agency_id:$('bl_agency').value,keyword:$('bl_kw').value}));}
+
+// ---------------- 初始化 ----------------
+(function(){const[r0,r1]=defRange();['ov','sv','sd','fd','bl'].forEach(p=>{$(p+'_d0').value=r0;$(p+'_d1').value=r1;});
+  loadFilters();loadOverview();})();
+</script>
+</body>
+</html>
